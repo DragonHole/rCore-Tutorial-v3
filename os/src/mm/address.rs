@@ -159,6 +159,14 @@ impl<T> SimpleRange<T> where
     }
     pub fn get_start(&self) -> T { self.l }
     pub fn get_end(&self) -> T { self.r }
+    pub fn is_overlap(&self, other: Self) -> bool {
+        if self.l <= other.r && self.r <= other.l {
+            true
+        }
+        else {
+            false 
+        }
+    }
 }
 impl<T> IntoIterator for SimpleRange<T> where
     T: StepByOne + Copy + PartialEq + PartialOrd + Debug, {

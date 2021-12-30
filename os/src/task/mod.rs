@@ -5,6 +5,7 @@ mod task;
 use crate::loader::{get_num_app, get_app_data};
 use crate::trap::TrapContext;
 use crate::sync::UPSafeCell;
+use crate::mm::MemorySet;
 use lazy_static::*;
 use switch::__switch;
 use task::{TaskControlBlock, TaskStatus};
@@ -87,6 +88,11 @@ impl TaskManager {
     fn get_current_token(&self) -> usize {
         let inner = self.inner.exclusive_access();
         inner.tasks[inner.current_task].get_user_token()
+    }
+
+    fn get_current_memoryset(&self) -> MemorySet {
+        let inner = self.inner.exclusive_access();
+        inner.tasks[inner.current_task].get_user_memoryset()
     }
 
     fn get_current_trap_cx(&self) -> &mut TrapContext {

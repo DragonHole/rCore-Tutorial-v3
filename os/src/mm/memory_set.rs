@@ -37,7 +37,7 @@ lazy_static! {
 
 pub struct MemorySet {
     page_table: PageTable,
-    areas: Vec<MapArea>,
+    pub areas: Vec<MapArea>,
 }
 
 impl MemorySet {
@@ -188,10 +188,18 @@ impl MemorySet {
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
         self.page_table.translate(vpn)
     }
+    pub fn isoverlap(&self, other: VPNRange) -> bool {
+        for area in self.areas {
+            if area.vpn_range.is_overlap(other) {   // err upon any conflict
+                return false;
+            }
+        }
+        true
+    }
 }
 
 pub struct MapArea {
-    vpn_range: VPNRange,
+    pub vpn_range: VPNRange,
     data_frames: BTreeMap<VirtPageNum, FrameTracker>,
     map_type: MapType,
     map_perm: MapPermission,
