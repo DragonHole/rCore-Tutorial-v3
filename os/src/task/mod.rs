@@ -5,7 +5,7 @@ mod task;
 use crate::loader::{get_num_app, get_app_data};
 use crate::trap::TrapContext;
 use crate::sync::UPSafeCell;
-use crate::mm::MemorySet;
+use crate::mm::{MapPermission, VirtAddr};
 use lazy_static::*;
 use switch::__switch;
 use task::{TaskControlBlock, TaskStatus};
@@ -90,9 +90,61 @@ impl TaskManager {
         inner.tasks[inner.current_task].get_user_token()
     }
 
-    fn get_current_memoryset(&self) -> MemorySet {
-        let inner = self.inner.exclusive_access();
-        inner.tasks[inner.current_task].get_user_memoryset()
+    fn map_memory_area(&self, start: usize, len: usize, port: usize) -> isize {
+        let mut inner = self.inner.exclusive_access();
+        let current_task = inner.current_task;
+        inner.tasks[current_task].map_memory_area(start, len, port)
+    }
+
+    fn mmap(&self, start: usize, len: usize, port: usize) -> isize {
+        if len == 0 {
+            return 0;
+        }
+        if len > 1073741824{
+            return -1;
+        }
+        if start % 4096 != 0 {
+            return -1;
+        }
+        let mut length = len;
+        if len % 4096 != 0 {
+            length = len + (4096 - len % 4096);
+        }
+        if (port & !0x7 != 0) || (port & 0x7 == 0) {
+            return -1;
+        }
+        
+        // println!("@");
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        // println!("Start : {:#X}", VirtPageNum::from(start/4096).0);
+        let from:usize = start / 4096;
+        let to:usize = (start + length) / 4096;
+        // println!("from to {} {}", from, to);
+        // for vpn in from..to {
+        //     if true == inner.tasks[current].memory_set.find_vpn(VirtPageNum::from(vpn)) {
+        //         return -1;
+        //     }
+        // }
+        
+        let permission = match port {
+            1 => MapPermission::U | MapPermission::R,
+            2 => MapPermission::U | MapPermission::W,
+            3 => MapPermission::U | MapPermission::R | MapPermission::W,
+            4 => MapPermission::U | MapPermission::X,
+            5 => MapPermission::U | MapPermission::R | MapPermission::X,
+            6 => MapPermission::U | MapPermission::X | MapPermission::W,
+            _ => MapPermission::U | MapPermission::R | MapPermission::W | MapPermission::X,
+        };
+    
+        inner.tasks[current].memory_set.insert_framed_area(VirtAddr::from(start), VirtAddr::from(start+length), permission);
+    
+        // for vpn in from..to {
+        //     if false == inner.tasks[current].memory_set.find_vpn(VirtPageNum::from(vpn)) {
+        //         return -1;
+        //     }
+        // }
+        0
     }
 
     fn get_current_trap_cx(&self) -> &mut TrapContext {
@@ -155,4 +207,10 @@ pub fn current_user_token() -> usize {
 
 pub fn current_trap_cx() -> &'static mut TrapContext {
     TASK_MANAGER.get_current_trap_cx()
+}
+
+// 这里只是开放给外界的接口
+pub fn map_new_memory(start: usize, len: usize, port: usize) -> isize {
+    TASK_MANAGER.map_memory_area(start, len, port)
+    //TASK_MANAGER.mmap(start, len, port) // not mine
 }

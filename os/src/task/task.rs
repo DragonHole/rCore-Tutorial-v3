@@ -1,4 +1,4 @@
-use crate::mm::{MemorySet, MapPermission, PhysPageNum, KERNEL_SPACE, VirtAddr};
+use crate::mm::{MemorySet, MapPermission, PhysPageNum, KERNEL_SPACE, VirtAddr, VirtPageNum, VPNRange};
 use crate::trap::{TrapContext, trap_handler};
 use crate::config::{TRAP_CONTEXT, kernel_stack_position};
 use super::TaskContext;
@@ -18,6 +18,72 @@ impl TaskControlBlock {
     pub fn get_user_token(&self) -> usize {
         self.memory_set.token()
     }
+    pub fn map_memory_area(&mut self, start: usize, len: usize, port: usize) -> isize {
+        // needs to be page aligned
+        if !VirtAddr::from(start).aligned() {
+            return -3;
+        }
+
+        println!("port : {:#b}", port);
+
+        // make sure the upper 63 bits are zero, and lowest 3 bits not all zero
+        if (port & !0x7 != 0) || (port & 0x7 == 0) {
+            return -1;
+        }
+
+        let mut permission: MapPermission = MapPermission::U;
+
+        if port & (1 << 0) != 0 {
+            permission |= MapPermission::R;
+        }
+        if port & (1 << 1) != 0 {
+            permission |= MapPermission::W;
+        }
+        if port & (1 << 2) != 0 {
+            permission |= MapPermission::X;
+        }
+
+        // let permission = match port {
+        //     1 => MapPermission::U | MapPermission::R,
+        //     2 => MapPermission::U | MapPermission::W,
+        //     3 => MapPermission::U | MapPermission::R | MapPermission::W,
+        //     4 => MapPermission::U | MapPermission::X,
+        //     5 => MapPermission::U | MapPermission::R | MapPermission::X,
+        //     6 => MapPermission::U | MapPermission::X | MapPermission::W,
+        //     _ => MapPermission::U | MapPermission::R | MapPermission::W | MapPermission::X,
+        // };
+
+        let from: usize = start;
+        let to: usize = start + len;
+
+        let new_range = VPNRange::new(VirtPageNum::from(start), VirtPageNum::from(VirtAddr::from(start+len).ceil()));
+
+        // // check overlap
+        // for area in &self.memory_set.areas {
+        //     if new_range.is_overlap(area.vpn_range) {   // err upon any conflict
+        //         return -2;
+        //     }
+        // }
+
+        // println!("from to {} {}", from, to);
+        // for vpn in from..to {
+        //     if true == inner.tasks[current].memory_set.find_vpn(VirtPageNum::from(vpn)) {
+        //         return -5;
+        //     }
+        // }
+
+        // self.memory_set.insert_framed_area(new_range.get_start().into() , new_range.get_end().into(), permission);
+        self.memory_set.insert_framed_area(VirtAddr::from(0x10000000), VirtAddr::from(0x10001000), MapPermission::U | MapPermission::R | MapPermission::W);
+
+        // for vpn in from..to {
+        //     if false == self.memory_set.find_vpn(VirtPageNum::from(vpn)) {
+        //         return -1;
+        //     }
+        // }
+
+        0
+    }
+    
     pub fn new(elf_data: &[u8], app_id: usize) -> Self {
         // memory_set with elf program headers/trampoline/trap context/user stack
         let (memory_set, user_sp, entry_point) = MemorySet::from_elf(elf_data);
