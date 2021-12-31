@@ -7,6 +7,7 @@ use alloc::vec::Vec;
 use riscv::register::satp;
 use alloc::sync::Arc;
 use lazy_static::*;
+use core::cmp::{max, min};
 use crate::sync::UPSafeCell;
 use crate::config::{
     MEMORY_END,
@@ -65,6 +66,29 @@ impl MemorySet {
             map_area.copy_data(&mut self.page_table, data);
         }
         self.areas.push(map_area);
+    }
+    pub fn remove_framed_area(&mut self, start_va: VirtAddr, end_va: VirtAddr) -> isize {
+        for area in &self.areas {
+            let start_va_pagenum = VirtPageNum::from(start_va);
+            let end_va_pagenum = VirtPageNum::from(end_va.ceil());
+            if area.vpn_range.is_overlap(VPNRange::new(start_va_pagenum, end_va_pagenum)) {
+                let intersection_left = max(area.vpn_range.get_start(), end_va_pagenum);
+                let intersection_right = min(area.vpn_range.get_start(), end_va_pagenum);
+                // deal with ceiling offset etc
+                
+
+            }
+            else {
+                return -1;
+            }
+        }
+        0
+    }
+    pub fn remove(&self, &mut map_area: MapArea) {
+        // map_area.unmap(&mut self.page_table);
+        // let index = self.areas.iter().position(|&x| x == map_area).unwrap();
+        // self.areas.remove(index);
+
     }
     /// Mention that trampoline is not collected by areas.
     fn map_trampoline(&mut self) {

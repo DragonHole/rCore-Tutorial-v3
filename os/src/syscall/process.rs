@@ -38,3 +38,7 @@ pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
 pub fn sys_mmap(start: usize, len: usize, port: usize) -> isize {
     task::map_new_memory(start, len, port)
 }
+
+fn sys_munmap(start: usize, len: usize) -> isize {
+    true
+}

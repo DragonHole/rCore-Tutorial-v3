@@ -45,18 +45,8 @@ impl TaskControlBlock {
             permission |= MapPermission::X;
         }
 
-        // let mut permission = match port {
-        //     1 => MapPermission::U | MapPermission::R,
-        //     2 => MapPermission::U | MapPermission::W,
-        //     3 => MapPermission::U | MapPermission::R | MapPermission::W,
-        //     4 => MapPermission::U | MapPermission::X,
-        //     5 => MapPermission::U | MapPermission::R | MapPermission::X,
-        //     6 => MapPermission::U | MapPermission::X | MapPermission::W,
-        //     _ => MapPermission::U | MapPermission::R | MapPermission::W | MapPermission::X,
-        // };
-
-        let from: usize = start;
-        let to: usize = start + len;
+        // let from: usize = start;
+        // let to: usize = start + len;
 
         let new_range = VPNRange::new(VirtPageNum::from(VirtAddr::from(start)), VirtPageNum::from(VirtAddr::from(start+len).ceil()));
         println!("new: {} {}", new_range.get_start().0, new_range.get_end().0);
