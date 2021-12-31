@@ -22,11 +22,11 @@ impl TaskControlBlock {
     pub fn map_memory_area(&mut self, start: usize, len: usize, port: usize) -> isize {
         // needs to be page aligned
         if !VirtAddr::from(start).aligned() {
-            return -3;
+            return -1;
         }
 
-        println!("port : {:#b}, shame : {:#b}", port, self.shame);
-        self.shame += 1;
+        //println!("port : {:#b}, shame : {:#b}", port, self.shame);
+        //self.shame += 1;
 
         // make sure the upper 63 bits are zero, and lowest 3 bits not all zero
         if (port & !0x7 != 0) || (port & 0x7 == 0) {
@@ -59,13 +59,16 @@ impl TaskControlBlock {
         let to: usize = start + len;
 
         let new_range = VPNRange::new(VirtPageNum::from(VirtAddr::from(start)), VirtPageNum::from(VirtAddr::from(start+len).ceil()));
+        println!("new: {} {}", new_range.get_start().0, new_range.get_end().0);
 
-        // check overlap
-        // for area in &self.memory_set.areas {
-        //     if new_range.is_overlap(area.vpn_range) {   // err upon any conflict
-        //         return -2;
-        //     }
-        // }
+        //check overlap
+        for area in &self.memory_set.areas {
+            // println!("{} {} {} {}", area.vpn_range.get_start().0, area.vpn_range.get_end().0, new_range.get_start().0, new_range.get_end().0);
+            
+            if new_range.is_overlap(area.vpn_range) {   // err upon any conflict
+               return -1;
+            }
+        }
 
         // println!("from to {} {}", from, to);
         // for vpn in from..to {
@@ -76,7 +79,7 @@ impl TaskControlBlock {
 
         //permission = MapPermission::U | MapPermission::R | MapPermission::W | MapPermission::X;
 
-        println!("{:#x}, {:#x}", VirtAddr::from(new_range.get_start()).0, VirtAddr::from(new_range.get_end()).0);
+        // println!("{:#x}, {:#x}", VirtAddr::from(new_range.get_start()).0, VirtAddr::from(new_range.get_end()).0);
         self.memory_set.insert_framed_area(VirtAddr::from(new_range.get_start()) , VirtAddr::from(new_range.get_end()), permission);
         // self.memory_set.insert_framed_area(VirtAddr::from(0x10000000), VirtAddr::from(0x10001000), permission);
 
