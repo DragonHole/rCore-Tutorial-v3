@@ -28,6 +28,7 @@ fn main() -> i32 {
             assert_eq!(*addr, i as u8);
         }
     }
+
     println!("Test 04_1 OK!");
     0
 }

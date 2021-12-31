@@ -1,6 +1,6 @@
 use crate::mm::{MemorySet, MapPermission, PhysPageNum, KERNEL_SPACE, VirtAddr, VirtPageNum, VPNRange};
 use crate::trap::{TrapContext, trap_handler};
-use crate::config::{TRAP_CONTEXT, kernel_stack_position};
+use crate::config::{TRAP_CONTEXT, kernel_stack_position, PAGE_SIZE};
 use super::TaskContext;
 
 pub struct TaskControlBlock {
@@ -9,6 +9,7 @@ pub struct TaskControlBlock {
     pub memory_set: MemorySet,
     pub trap_cx_ppn: PhysPageNum,
     pub base_size: usize,
+    shame: usize,
 }
 
 impl TaskControlBlock {
@@ -24,7 +25,8 @@ impl TaskControlBlock {
             return -3;
         }
 
-        println!("port : {:#b}", port);
+        println!("port : {:#b}, shame : {:#b}", port, self.shame);
+        self.shame += 1;
 
         // make sure the upper 63 bits are zero, and lowest 3 bits not all zero
         if (port & !0x7 != 0) || (port & 0x7 == 0) {
@@ -43,7 +45,7 @@ impl TaskControlBlock {
             permission |= MapPermission::X;
         }
 
-        // let permission = match port {
+        // let mut permission = match port {
         //     1 => MapPermission::U | MapPermission::R,
         //     2 => MapPermission::U | MapPermission::W,
         //     3 => MapPermission::U | MapPermission::R | MapPermission::W,
@@ -56,9 +58,9 @@ impl TaskControlBlock {
         let from: usize = start;
         let to: usize = start + len;
 
-        let new_range = VPNRange::new(VirtPageNum::from(start), VirtPageNum::from(VirtAddr::from(start+len).ceil()));
+        let new_range = VPNRange::new(VirtPageNum::from(VirtAddr::from(start)), VirtPageNum::from(VirtAddr::from(start+len).ceil()));
 
-        // // check overlap
+        // check overlap
         // for area in &self.memory_set.areas {
         //     if new_range.is_overlap(area.vpn_range) {   // err upon any conflict
         //         return -2;
@@ -72,12 +74,15 @@ impl TaskControlBlock {
         //     }
         // }
 
-        // self.memory_set.insert_framed_area(new_range.get_start().into() , new_range.get_end().into(), permission);
-        self.memory_set.insert_framed_area(VirtAddr::from(0x10000000), VirtAddr::from(0x10001000), MapPermission::U | MapPermission::R | MapPermission::W);
+        //permission = MapPermission::U | MapPermission::R | MapPermission::W | MapPermission::X;
+
+        println!("{:#x}, {:#x}", VirtAddr::from(new_range.get_start()).0, VirtAddr::from(new_range.get_end()).0);
+        self.memory_set.insert_framed_area(VirtAddr::from(new_range.get_start()) , VirtAddr::from(new_range.get_end()), permission);
+        // self.memory_set.insert_framed_area(VirtAddr::from(0x10000000), VirtAddr::from(0x10001000), permission);
 
         // for vpn in from..to {
         //     if false == self.memory_set.find_vpn(VirtPageNum::from(vpn)) {
-        //         return -1;
+        //         return -9;
         //     }
         // }
 
@@ -107,6 +112,7 @@ impl TaskControlBlock {
             memory_set,
             trap_cx_ppn,
             base_size: user_sp,
+            shame: 0,
         };
         // prepare TrapContext in user space
         let trap_cx = task_control_block.get_trap_cx();
